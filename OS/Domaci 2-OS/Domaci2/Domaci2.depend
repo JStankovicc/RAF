@@ -1,0 +1,9 @@
+# depslib dependency file v1.0
+1622661556 source:c:\users\jovan stankovic\desktop\domaci 2-os\domaci2\main.c
+	<pthread.h>
+	<semaphore.h>
+	<sys/time.h>
+	<math.h>
+	<stdio.h>
+	<stdlib.h>
+
