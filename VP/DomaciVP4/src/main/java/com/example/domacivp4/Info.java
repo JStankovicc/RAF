@@ -110,6 +110,11 @@ public class Info {
 
     public void restartMap(){
         izabranaJela.clear();
+        mapaPon.clear();
+        mapaUto.clear();
+        mapaSre.clear();
+        mapaCet.clear();
+        mapaPet.clear();
     }
 
     public void dodajPon(String string){

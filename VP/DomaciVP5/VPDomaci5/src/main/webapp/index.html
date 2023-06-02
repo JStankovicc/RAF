@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <title>Public Blog</title>
+</head>
+<body>
+<h1 style="margin-bottom: 50px"> Public Blog </h1>
+<div id="mainDiv" class="container"></div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(document).ready(function () {
+        var allPostsDiv;
+        var commentList;
+        $.ajax({
+            url: '/api/posts',
+            type: 'GET',
+
+            success: function (posts) {
+                allPostsDiv = $('<div id="posts-div">').addClass('post-div')
+                for (var i = 0; i < posts.length; i++) {
+                    var post = posts[i];
+                    var truncatedContent = post.content.substring(0, 100) + '...';
+                    var date = getRelativeTime(post.date);
+                    var postDiv = $('<div>')
+                        .addClass('post')
+                        .attr('data-post-id', post.id)
+                        .append($('<h2>').text(post.title))
+                        .append($('<p>').text(truncatedContent))
+                        .append($('<p>').text(date))
+                        .append($('<small>Show more</small>'))
+                    allPostsDiv.append(postDiv);
+                }
+                $('#mainDiv').append(allPostsDiv);
+                var newPostButton = ($('<button id="new-post-btn">'))
+                    .addClass('new-post-btn')
+                    .text('New Post');
+                $('#mainDiv').append(newPostButton);
+            }
+        });
+
+        var lastId;
+        var divContentBuffer;
+        var divBuffer;
+        $('#mainDiv').on('click', '.post small', function () {
+            var postDiv = $(this).closest('.post');
+            var postId = postDiv.attr('data-post-id');
+
+            if (divBuffer && lastId && divBuffer.attr('data-post-id') !== postId) {
+                var lastDiv = $('div[data-post-id="' + lastId + '"]');
+                lastDiv.empty();
+                lastDiv.html(divContentBuffer);
+            }
+            lastId = postId;
+            divContentBuffer = postDiv.html();
+            divBuffer = postDiv;
+            postDiv.empty();
+
+            $.ajax({
+                url: '/api/posts/' + postId,
+                type: 'GET',
+
+                success: function (post) {
+                    var postDetails = $('<div>')
+                        .addClass('post-details')
+                        .attr('data-post-id', post.id)
+                        .append($('<h2>').text(post.title))
+                        .append($('<p>').text(post.content))
+                        .append($('<p>').text('Author: ' + post.author))
+                        .append($('<p>').text('Date: ' + post.date));
+                    commentList = $('<ul>').addClass('comment-list');
+
+                    for (var i = 0; i < post.comments.length; i++) {
+                        var comment = post.comments[i];
+                        var commentItem = $('<li>')
+                            .addClass('comment-item')
+                            .append($('<p>').text(comment.author + ': ' + comment.comment))
+                        commentList.append(commentItem);
+                    }
+                    var newCommentForm = $('<form>')
+                        .addClass('new-comment-form')
+                        .append($('<label>').text('Author:'))
+                        .append($('<input id="new-comment-author">').attr('type', 'text').attr('name', 'author'))
+                        .append($('<label>').text('Comment:'))
+                        .append($('<textarea id="new-comment-content">').attr('name', 'content'))
+                        .append($('<button>').attr('id', postId).addClass('save-comment').text('Save Comment'));
+                    var postDetailsDiv = $('<div>')
+                        .addClass('post-details-container')
+                        .append(postDetails)
+                        .append(commentList)
+                        .append(newCommentForm);
+                    $('.post-details-container').remove();
+                    postDiv.append(postDetailsDiv);
+                }
+            });
+        });
+
+        function getRelativeTime(date) {
+            const currentDate = new Date();
+            const postDate = new Date(date);
+            const diffTime = Math.abs(currentDate - postDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays === 1) {
+                return "today";
+            } else {
+                return diffDays + " days ago";
+            }
+        }
+
+        var newPostFormBuffer = null;
+        $('#mainDiv').on('click', '.new-post-btn', function () {
+            $(this).hide();
+            if (newPostFormBuffer === null) {
+                var newPostForm = $('<form id="new-post-form">')
+                    .addClass('new-post-form')
+                    .append($('<label>').text('Title:'))
+                    .append($('<input id="new-post-title">').attr('type', 'text').attr('name', 'title'))
+                    .append($('<label>').text('Author:'))
+                    .append($('<input id="new-post-author">').attr('type', 'text').attr('name', 'author'))
+                    .append($('<label>').text('Content:'))
+                    .append($('<textarea id="new-post-content">').attr('name', 'content'))
+                    .append($('<button>').addClass('save-post-btn').text('Save Post').addClass('save-post'));
+                $(this).parent().append(newPostForm);
+            } else {
+                newPostFormBuffer.show();
+            }
+        });
+
+        $('#mainDiv').on('click', '.save-post-btn', function () {
+            event.preventDefault();
+            const formData = {
+                author: $('#new-post-author').val(),
+                title: $('#new-post-title').val(),
+                content: $('#new-post-content').val()
+            };
+
+            $.ajax({
+                type: 'POST',
+                url: '/api/posts',
+                data: JSON.stringify(formData),
+                contentType: 'application/json',
+                success: function (post) {
+                    $('#new-post-form').hide();
+                    $('#new-post-btn').show();
+
+                    var truncatedContent = post.content.substring(0, 100) + '...';
+                    var date = getRelativeTime(post.date);
+                    var postDiv = $('<div>')
+                        .addClass('post')
+                        .attr('data-post-id', post.id)
+                        .append($('<h2>').text(post.title))
+                        .append($('<p>').text(truncatedContent))
+                        .append($('<p>').text(date))
+                        .append($('<small>Show more</small>'))
+                    allPostsDiv.append(postDiv);
+                },
+                error: function (xhr, status, error) {
+                    console.log('Error:', error);
+                }
+            });
+        });
+
+        $('#mainDiv').on('click', '.save-comment', function () {
+            event.preventDefault();
+            const formData = {
+                author: $('#new-comment-author').val(),
+                comment: $('#new-comment-content').val()
+            };
+
+            var postId = $(this).attr('id');
+
+            $.ajax({
+                url: '/api/posts/' + postId + '/comment',
+                type: 'POST',
+                data: JSON.stringify(formData),
+                contentType: 'application/json',
+
+                success: function (comment) {
+                    var commentItem = $('<li>')
+                        .addClass('comment-item')
+                        .append($('<p>').text(comment.author + ': ' + comment.comment))
+                    commentList.append(commentItem);
+                }
+            });
+        });
+
+
+    });
+</script>
+</body>
+</html>
